@@ -1,8 +1,6 @@
 library(tidyverse)
 library(Lahman)
 
-setwd("~/Desktop/coding/R/Phillies Project/retrosheet/unzipped")
-
 retro_to_lahman <- function(retrosheet_table) {
   temp_array <- c("1", "2", "3", "4", "5", "6", "7", "8", "9") 
   
