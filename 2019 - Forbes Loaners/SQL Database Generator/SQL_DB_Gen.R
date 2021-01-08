@@ -3,7 +3,6 @@ library(doParallel)
 library(RMySQL)
 library(mlbgameday)
 require(DBI)
-setwd("~/Desktop/Phillies Project/SQL Database Generator")
 
 source('installing_packages.R')
 source('parse_retrosheet_pbp.R')
