@@ -11,9 +11,9 @@ require(DBI)
 
 conn <- dbConnect(MySQL(), 
                   dbname = "lahman",
-                  user = "r-user", 
-                  password = "h2p@4031",
-                  host = "saberbase.cn2snhhvsjfa.us-east-2.rds.amazonaws.com",
+                  user = "redacted", 
+                  password = "redacted",
+                  host = "redacted",
                   port = 3306)
 
 grid_search <- function(conn, string) {
