@@ -1,9 +1,9 @@
 library(RMySQL)
 library(tidyverse)
 library(modelr)
-library(lahman)
+library(Lahman)
 require(DBI)
-
+setwd("~/Desktop/Mathletics Code-Alongs")
 source('inning_simulation.R')
 
 # Chapter 1 - Baseball's Pythagorean Theorem
@@ -14,9 +14,9 @@ source('inning_simulation.R')
 
 conn <- dbConnect(MySQL(), 
                   dbname = "lahman",
-                  user = "redacted", 
-                  password = "redacted",
-                  host = "redacted",
+                  user = "r-user", 
+                  password = "h2p@4031",
+                  host = "saberbase.cn2snhhvsjfa.us-east-2.rds.amazonaws.com",
                   port = 3306)
 
 grid_search <- function(conn, string) {
@@ -78,4 +78,20 @@ mean(replicate(10000, inning_simulation(event_list)))
 # Now, let's get the data together for Ichiro to simulate his innings. Some extrapolation for the events is done using the
 # computations available in the book.
 
-battingStats() %>% filter(playerID == 'suzukic01', yearID == 2004) -> Ichiro2004
+dbGetQuery(conn, 'select sum(AB + BB + SH + SF + HBP) as PA,
+            sum(ceiling(0.018*AB)) as Errors,
+            sum(AB + SF + SH - H - ceiling(0.018*AB) - SO) as OutsInPlay,
+            sum(SO), sum(BB), sum(HBP),
+            sum(H - X2B - X3B - HR) as Singles,
+            sum(X2B), sum(X3B), sum(HR)
+            from batting
+            where playerid = \'suzukic01\'
+            and yearid = 2004;') %>% as.numeric() -> IchiroVector
+
+IchiroVector <- (IchiroVector/IchiroVector[[1]])[2:length(IchiroVector)]
+IchiroExtrap <- extrapolate_event_list(IchiroVector)
+
+mean(replicate(100000, inning_simulation(IchiroExtrap)))*26.72/3
+
+# I get a few extra runs over the prediction of the author. I'm not certain
+# what the cause of this is. I will snoop around for what the cause may be.
