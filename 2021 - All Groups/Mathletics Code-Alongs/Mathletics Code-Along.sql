@@ -1,9 +1,12 @@
+-- To be added in once I have a much stronger foundation in STATS1152 Material:
+-- Chapter 11: Streakiness in Sports
+
 -- This file was made to provide an explanation to students how some
 -- analysis in the book "Mathletics" can be done in MySQL.
 
 use lahman;
 
--- Chapter 1, Baseball's Pythagorean Theorem
+-- Chapter 1: Baseball's Pythagorean Theorem
 -- There is a minor difference in answers from book due to sigfigs being used.
 
 create temporary table temp
@@ -28,7 +31,7 @@ from temp;
 -- The best choice for the exponent in the alternate pythagorean theorem
 -- is done in the complimentary R file to save some coding pains.
 
--- Chapter 2, Runs-Created Approach
+-- Chapter 2: Runs-Created Approach
 
 -- Pulling up team data
 
@@ -54,9 +57,20 @@ drop temporary table temp;
 -- Ichiro's ID: 'suzukic01'
 -- Bonds' ID: 'bondsba01'
 
-select * from batting;
+select * from batting
 where playerid in ('bondsba01', 'suzukic01')
 and yearid = 2004;
+
+select * from batting
+where yearid = 1997
+and playerID like 'n%';
+
+select * from people
+where birthyear = 1973
+and birthmonth = 7
+and birthday = 23;
+
+show tables;
 
 select *, 
 (H + BB + HBP)*(H - X2B - X3B - HR + 2*X2B + 3*X3B + 4*HR)/(AB + BB + HBP) as runs_created,
@@ -82,3 +96,31 @@ from batting
 where playerid in ('bondsba01', 'suzukic01')
 and yearid = 2004;
 
+-- Chapter 4: Monte Carlo Simulations
+
+-- The Monte Carlo simulator is reserved for the R file; it'd be a nightmare to code up in SQL.
+-- We'll just show how the data might be gathered in this file.
+
+-- For some reason sacrifice hits are counted in the total plate appearances on the teams table,
+-- so we'll have to gather that from the batting table. We can then just exclude Pujols with
+-- a "not in" statement.
+
+select sum(AB + BB + SH + SF + HBP) as PA,
+round(sum(0.018*AB), 0) as Errors,
+round(sum(AB + SF + SH - H - 0.018*AB - SO), 0) as OutsInPlay,
+sum(SO), sum(BB), sum(HBP),
+sum(H - X2B - X3B - HR) as Singles,
+sum(X2B), sum(X3B), sum(HR)
+from batting
+where teamID = 'SLN' and yearid = 2006 and playerID not in ('pujolal01');
+
+-- For pujols as an individual:
+
+select AB + BB + SH + SF + HBP as PA,
+round(0.018*AB, 0) as Errors,
+AB + SF + SH - H - round(0.018*AB, 0) - SO as OutsInPlay,
+SO, BB, HBP,
+H - X2B - X3B - HR as Singles,
+X2B, X3B, HR
+from batting
+where playerid = 'pujolal01' and yearid = 2006;

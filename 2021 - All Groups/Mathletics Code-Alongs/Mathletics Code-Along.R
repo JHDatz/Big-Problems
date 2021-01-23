@@ -6,7 +6,14 @@ require(DBI)
 setwd("~/Desktop/Mathletics Code-Alongs")
 source('inning_simulation.R')
 
-# Chapter 1 - Baseball's Pythagorean Theorem
+# To be added in once I have a much stronger foundation in STATS1152 Material:
+#
+# Chapter 11: Streakiness in Sports
+
+# This file was made to provide an explanation to students how some
+# analysis in the book "Mathletics" can be done in R.
+
+# Chapter 1: Baseball's Pythagorean Theorem
 # Here we find the best choice for the exponent in formula (2).
 
 # To Math Majors and Statisticians: since the book uses absolute error and not the least squares
@@ -14,9 +21,9 @@ source('inning_simulation.R')
 
 conn <- dbConnect(MySQL(), 
                   dbname = "lahman",
-                  user = "r-user", 
-                  password = "h2p@4031",
-                  host = "saberbase.cn2snhhvsjfa.us-east-2.rds.amazonaws.com",
+                  user = "redacted", 
+                  password = "redacted",
+                  host = "redacted",
                   port = 3306)
 
 grid_search <- function(conn, string) {
@@ -66,7 +73,7 @@ rmse(lm.fit, data = data)
 # I'm fairly certain this is because R and Excel are using different algorithms for convergence (ie least squares
 # versus gradient descent), but since I don't own excel I can't pursue why further.
 
-# Chapter 4 - Monte Carlo Simulation
+# Chapter 4: Monte Carlo Simulation
 #
 # Let's do Joe Hardy First.
 
@@ -75,23 +82,39 @@ event_list <- c(.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, .5, 0, 0, 0, 0, 0, 0)
 mean(replicate(10000, inning_simulation(event_list)))
 
 # The function for simulating an inning is huge, so it is resting in the file inning_simulation.R with some added commentary there.
-# Now, let's get the data together for Ichiro to simulate his innings. Some extrapolation for the events is done using the
-# computations available in the book.
+# Now, let's simulate Ichiro's innings. Some extrapolation for the events is done using the computations available in the book.
 
-dbGetQuery(conn, 'select sum(AB + BB + SH + SF + HBP) as PA,
-            sum(ceiling(0.018*AB)) as Errors,
-            sum(AB + SF + SH - H - ceiling(0.018*AB) - SO) as OutsInPlay,
-            sum(SO), sum(BB), sum(HBP),
-            sum(H - X2B - X3B - HR) as Singles,
-            sum(X2B), sum(X3B), sum(HR)
-            from batting
-            where playerid = \'suzukic01\'
-            and yearid = 2004;') %>% as.numeric() -> IchiroVector
 
-IchiroVector <- (IchiroVector/IchiroVector[[1]])[2:length(IchiroVector)]
-IchiroExtrap <- extrapolate_event_list(IchiroVector)
+IchiroExtrap <- get_batting_prob(conn, 'suzukic01', 2004)
+mean(replicate(50000, inning_simulation(IchiroExtrap)))*26.72/3 
 
-mean(replicate(100000, inning_simulation(IchiroExtrap)))*26.72/3
+# The 26.72 is the mean # of outs in a game, so 26.72/3 is the mean # of innings in a game, so
+# the whole statement should be read as the amount of runs that 9 Ichiros as batters would get
+# per game.
 
-# I get a few extra runs over the prediction of the author. I'm not certain
-# what the cause of this is. I will snoop around for what the cause may be.
+# I found a bug in the author's excel spreadsheet model for GIDP that causes each GIDP to count as a triple play.
+# When reproduced my inning simulator gets essentially the same runs as the author. When removed Ichiro
+# gets .2 to .3 more runs then the author's model.
+
+# Let's do the same for 2006 Pujols and see how many wins he contributed to the cardinals.
+
+PujolsExtrap <- get_batting_prob(conn, 'pujolal01', 2006)
+mean(replicate(50000, inning_simulation(PujolsExtrap)))*26.72/3
+
+SLNExtrap_noPujols <- team_batting_1out(conn, 'SLN', 2006, 'pujolal01')
+
+season_runs_projection <- mean(replicate(50000, inning_simulation(SLNExtrap_noPujols)))*(26.72/3)*161 # Expected runs in season without Pujols
+actual_runs_scored <- dbGetQuery(conn, 'select R from teams where teamID = \'SLN\' and yearID = 2006;')$R
+runs_allowed <- dbGetQuery(conn, 'select RA from teams where teamID = \'SLN\' and yearID = 2006;')$RA
+
+actual_score_ratio <- actual_runs_scored/runs_allowed
+(actual_score_ratio^2)/((actual_score_ratio)^2 + 1)*161 # Expected Wins
+
+noPujols_score_ratio <- season_runs_projection/runs_allowed
+(noPujols_score_ratio^2)/((noPujols_score_ratio)^2 + 1)*161 # Expected Wins without Pujols
+
+(actual_score_ratio^2)/((actual_score_ratio)^2 + 1)*161 - (noPujols_score_ratio^2)/((noPujols_score_ratio)^2 + 1)*161 # Wins added due to Pujols' Batting
+
+# This can also be done for an average team; not just the Cardinals.
+
+# Chapter 5: Evaluating Baseball Pitchers and Forecasting Future Performance
