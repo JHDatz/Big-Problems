@@ -124,3 +124,59 @@ H - X2B - X3B - HR as Singles,
 X2B, X3B, HR
 from batting
 where playerid = 'pujolal01' and yearid = 2006;
+
+-- Chapter 5: Evaluating Baseball Pitchers and Forecasting Future Performance
+
+-- The linear regression is again done in R instead of SQL.
+-- Let's predict how how future ERA holds up using linear weights. 
+-- Warning: edge cases made the below code nasty.
+
+-- It's not stated in the book how the author edge cases such as...
+-- 1. How did he handle players that played in 2002 and 2004, but not 2003? Did he just ignore them for prediction purposes?
+-- 2. What what the threshold for innings pitched before we factored them into the analysis? Or if it was games instead of innings?
+-- So naturally my numbers disagree with his.
+
+drop temporary table temp;
+drop temporary table temp2;
+drop temporary table temp3;
+
+create temporary table temp
+select playerID, yearID, sum(ER) as ER, sum(IPOuts) as IPOuts, (sum(ER)/(sum(IPOuts)/3))*9 as ERA,
+2.8484 + .353*(sum(ER)/(sum(IPOuts)/3))*9 as predicted_ERA
+from pitching
+group by playerID, yearID
+having yearID between 2000 and 2006;
+
+create temporary table temp2
+select * from temp;
+
+create temporary table temp3
+select t.*, t2.predicted_ERA as prior_predicted_ERA
+from temp t
+left join temp2 t2 on t.yearID = t2.yearID + 1 and t.playerID = t2.playerID;
+
+select *, abs(ERA - prior_predicted_ERA) as absolute_error
+from temp3
+order by abs(ERA - prior_predicted_ERA) desc;
+
+select avg(abs(ERA - prior_predicted_ERA)) 
+from temp3
+where prior_predicted_ERA is not null;
+
+-- Calculating DICE
+
+select playerID, yearID, 
+3 + (13*HR + 3*(BB + HBP) - 2*SO)/(IPOuts/3) as DICE 
+from pitching
+order by DICE desc;
+
+-- Chapter 6: Baseball Decision-Making (To be completed)
+
+-- Run-value computations for 2000-2006
+-- This is also calculated in Chapter 5 of Analyzing Baseball Data w/ R.
+
+use retrosheet;
+
+select *, substring(game_ID, 4, 4)
+from playByPlay
+where substring(game_ID, 4, 4) between 2000 and 2006;
