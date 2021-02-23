@@ -1,3 +1,8 @@
+# Created by: Joseph Datz
+# February 23rd, 2021
+#
+# A quick query for putting users on the MySQL Server.
+
 show grants for admin;
 
 CREATE USER 'blah'@'%' IDENTIFIED BY 'blah blah blah';
