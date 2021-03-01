@@ -70,6 +70,8 @@ parse_retrosheet_pbp <- function(season) {
 append_pbp <- function(single_file, table, conn) {
   if (grepl('all', single_file)) {
     datafile <- read_csv(single_file, col_names = pull(read_csv('retrosheet/unzipped/fields.csv'), Header))
+    cols <- sapply(datafile, is.logical)                   # These two lines added 3/1/2021
+    datafile[,cols] <- lapply(datafile[,cols], as.integer) # To fix bug where logical cols. entered SQL as all 0s.
   } else {
     datafile <- read_csv(single_file, col_names = c('PlayerID', 'LastName', 'FirstName', 'Bats', 'Pitches', 'Team'))
   }

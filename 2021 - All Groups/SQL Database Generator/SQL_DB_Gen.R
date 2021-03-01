@@ -19,7 +19,7 @@ conn <- dbConnect(MySQL(),
                   host = "redacted",
                   port = 3306)
 
-map(1918:2020, pbp_to_sql, conn = conn)
+map(1978:2020, pbp_to_sql, conn = conn)
 map(1871:2020, append_game_logs, conn = conn)
 
 dbDisconnect(conn)
