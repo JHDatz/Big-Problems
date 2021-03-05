@@ -3,6 +3,7 @@ library(Lahman)
 require(DBI)
 
 upload_lahman <- function(conn) {
+  dbWriteTable(conn, name = "master", value = Master, append = TRUE, row.names = FALSE) # Added 3/5/2021
   dbWriteTable(conn, name = "people", value = People, append = TRUE, row.names = FALSE)
   dbWriteTable(conn, name = "batting", value = Batting, append = TRUE, row.names = FALSE)
   dbWriteTable(conn, name = "pitching", value = Pitching, append = TRUE, row.names = FALSE)
