@@ -1,214 +1,181 @@
 library(tidyverse)
 library(Lahman)
 library(RMySQL)
+library(broom)
+library(ggrepel)
 require(DBI)
 
-source("helper_code/one_simulation_68.R")
+Master %>%
+  filter(nameFirst == "Mickey", nameLast == "Mantle") %>%
+  pull(playerID) -> mantle_id
 
-# This code is a shortened and modified version of Chapter 9 in ABDwR.
-# It is modified to:
-#   Make calls to the MySQL server instead of heavily modifying a CSV file.
-#   By referring to a pre-constructed view, many lines can be simplified.
-#   Provide some commentary to compare/contrast methods with other books.
-#   Fix some minor errors in code in the book (ex: mislabling column names).
+batting <- Batting %>% replace_na(list(SF = 0, HBP = 0))
 
-# Get data from MySQL server
-
-conn <- dbConnect(MySQL(), 
-                  dbname = "merged",
-                  user = "r-user", 
-                  password = "h2p@4031",
-                  host = "saberbase.cn2snhhvsjfa.us-east-2.rds.amazonaws.com",
-                  port = 3306)
-
-dbGetQuery(conn, n = -1, 'call computeStates2(2016, 2016)')
-data2016 <- dbGetQuery(conn, n = -1, 'select * from stateTracker')
-
-dbDisconnect(conn)
-
-# Remove innings that don't go to 3 outs, innings where no scores
-# are made, and stick to ABs. Lastly, coalesce all 3 out transitions
-# to just a single 3 out state, regardless of runners on base. This
-# drops the 32 states in the end_state column to 25 states.
-
-data2016 %>% filter(start_state != end_state | runs_scored > 0) %>%
-  filter(outs_inning == 3, BAT_EVENT_FL == TRUE) %>%
-  mutate(end_state = gsub("[0-1]{3} 3", "3", end_state)) -> data2016C
-
-# Create the transition matrix T and the prob. matrix P. Add a row 
-# to P so that it's clear that the 3 out state is an absorbing state.
-
-data2016C %>% select(start_state, end_state) %>% table() -> T_matrix
-T_matrix %>% prop.table(1) -> P_matrix
-P_matrix <- rbind(P_matrix, c(rep(0, 24), 1))
-
-# Lets look at P_matrix like it's a list and see some particular states.
-
-P_matrix %>% as_tibble(rownames = "start_state") %>%
-  filter(start_state == "010 2") %>%
-  gather(key = "end_state", value = "Prob", -start_state) %>%
-  filter(Prob > 0)
-
-# Create a function which sums up the number
-# of runners and outs. This is to aid us in creating
-# the equation on page 206 for every permutation of
-# state changes.
-
-count_runners_out <- function(s) {
-  s %>% str_split("") %>%
-    pluck(1) %>%
-    as.numeric() %>%
-    sum(na.rm = TRUE)
+get_stats <- function(player.id) {
+  batting %>%
+    filter(playerID == player.id) %>%
+    inner_join(Master, by = "playerID") %>%
+    mutate(birthyear = ifelse(birthMonth >= 7, birthYear + 1, birthYear),
+           Age = yearID - birthyear,
+           SLG = (H - X2B - X3B - HR + 2*X2B + 3*X3B + 4*HR)/AB,
+           OBP = (H + BB + HBP)/(AB + BB + HBP + SF),
+           OPS = SLG + OBP) %>%
+    select(Age, SLG, OBP, OPS)
 }
 
-runners_out <- sapply(row.names(T_matrix), count_runners_out)[-25]
+Mantle <- get_stats(mantle_id)
 
-R <- outer(runners_out + 1, runners_out, FUN="-")
-names(R) <- dimnames(T_matrix)$start_state[-25]
-R <- cbind(R, rep(0, 24))
+ggplot(Mantle) + aes(Age, OPS) + geom_point()
 
-simulate_half_inning <- function(P, R, start = 1) {
-  s <- start
-  path <- NULL
-  runs <- 0
-  while (s < 25) {
-    s.new <- sample(1:25, size = 1, prob = P[s,])
-    path <- c(path, s.new)
-    runs <- runs + R[s, s.new]
-    s <- s.new
-  }
-  runs
+fit_model <- function(d) {
+  fit <- lm(OPS ~ I(Age - 30) + I((Age - 30)^2), data = d)
+  b <- coef(fit)
+  Age.max <- 30 - b[2] / b[3] / 2
+  Max <- b[1] - b[2] ^ 2 / b[3] / 4
+  list(fit = fit, Age.max = Age.max, Max = Max)
 }
 
-set.seed(111653)
+F2 <- fit_model(Mantle)
+coef(F2$fit)
+c(F2$Age.max, F2$Max)
 
-# Use Markov Chains to get Run Expectancy Matrix
+ggplot(Mantle) + aes(Age, OPS) + geom_point() + 
+  geom_smooth(method = "lm", se = FALSE, size = 1.5, formula = y ~ poly(x, 2, raw = TRUE)) +
+  geom_vline(xintercept = F2$Age.max, linetype = "dashed", color = "darkgrey") +
+  geom_hline(yintercept = F2$Max, linetype = "dashed", color = "darkgrey") +
+  annotate(geom = "text", x = c(29, 20), y = c(0.72, 1.1), label = c("Peak Age", "Max"), size = 5)
 
-RUNS <- replicate(10000, simulate_half_inning(P_matrix, R, 1))
+F2 %>% pluck("fit") %>% summary()
 
-RUNS.j <- function(j) {
-  mean(replicate(10000, simulate_half_inning(P_matrix, R, j)))
+batting %>%
+  group_by(playerID) %>%
+  summarize(Career.AB = sum(AB, na.rm = TRUE)) %>%
+  inner_join(batting, by = "playerID") %>%
+  filter(Career.AB >= 2000) -> batting_2000
+
+Fielding %>%
+  group_by(playerID, POS) %>%
+  summarize(Games = sum(G)) %>%
+  arrange(playerID, desc(Games)) %>%
+  filter(POS == first(POS)) -> Positions
+
+batting_2000 <- batting_2000 %>% inner_join(Positions, by = "playerID")
+
+vars <- c("G", "AB", "R", "H", "X2B", "X3B", "HR", "RBI", "BB", "SO", "SB")
+
+batting %>%
+  group_by(playerID) %>%
+  summarize_at(vars, sum, na.rm = TRUE) -> C.totals
+
+C.totals %>%
+  mutate(AVG = H/AB,
+         SLG = (H - X2B - X3B - HR + 2*X2B + 3*X3B + 4*HR)/AB) -> C.totals
+
+C.totals %>%
+  inner_join(Positions, by = "playerID") %>%
+  mutate(Value.POS = case_when(
+    POS == "C" ~ 240,
+    POS == "SS" ~ 168,
+    POS == "2B" ~ 132,
+    POS == "3B" ~ 84,
+    POS == "OF" ~ 48,
+    POS == "1B" ~ 12,
+    TRUE ~ 0)) -> C.totals
+
+similar <- function(p, number = 10) {
+  C.totals %>% filter(playerID == p) -> P
+  C.totals %>%
+    mutate(sim_score = 1000 -
+             floor(abs(G - P$G) / 20) -
+             floor(abs(AB - P$AB) / 75) -
+             floor(abs(R - P$R) / 10) -
+             floor(abs(H - P$H) / 15) -
+             floor(abs(X2B - P$X2B) / 5) -
+             floor(abs(X3B - P$X3B) / 4) -
+             floor(abs(HR - P$HR) / 2) -
+             floor(abs(RBI - P$RBI) / 10) -
+             floor(abs(BB - P$BB) / 25) -
+             floor(abs(SO - P$SO) / 150) -
+             floor(abs(SB - P$SB) / 20) -
+             floor(abs(AVG - P$AVG) / 0.001) -
+             floor(abs(SLG - P$SLG) / 0.002) -
+             abs(Value.POS - P$Value.POS)) %>%
+    arrange(desc(sim_score)) %>%
+    head(number)
 }
 
-RE_bat <- sapply(1:24, RUNS.j) %>%
-  matrix(nrow = 8, ncol = 3, byrow = TRUE,
-         dimnames = list(c("000", "001", "010", "011", "100", "101", "110", "111"),
-                         c("0 outs", "1 out", "2 outs")))
+similar(mantle_id, 6)
 
-# Use Markov Chains to analyze the Prob of moving to a particular state after
-# 3 states, and see the average number of state changes (i.e, PAs) before
-# moving to the 3-out absorbing state.
+batting_2000 %>%
+  group_by(playerID, yearID) %>%
+  summarize(G = sum(G), AB = sum(AB), R = sum(R), H = sum(H), X2B = sum(X2B), X3B = sum(X3B), 
+            HR = sum(HR), RBI = sum(RBI), SB = sum(SB), CS = sum(CS), BB = sum(BB), SH = sum(SH),
+            SF = sum(SF), HBP = sum(HBP), Career.AB = first(Career.AB), POS = first(POS)) %>%
+  mutate(SLG = (H - X2B - X3B - HR + 2*X2B + 3*X3B + 4*HR)/AB,
+         OBP = (H + BB + HBP)/(AB + BB + HBP + SF),
+         OPS = SLG + OBP) -> batting_2000
 
-P_matrix_3 <- P_matrix %*% P_matrix %*% P_matrix
+batting_2000 %>% inner_join(Master, by = "playerID") %>%
+  mutate(Birthyear = ifelse(birthMonth >= 7, birthYear + 1, birthYear),
+         Age = yearID - Birthyear) -> batting_2000
 
-P_matrix_3 %>%
-  as_tibble(rownames = 'start_state') %>%
-  filter(start_state == "000 0") %>%
-  gather(key = "end_state", value = "Prob", -start_state) %>%
-  arrange(desc(Prob)) %>%
-  head()
+batting_2000 %>% drop_na(Age) -> batting_2000
 
-Q <- P_matrix[-25, -25]
-N <- solve(diag(rep(1,24)) - Q)
-
-N.0000 <- round(N["000 0", ], 2)
-head(data.frame(N = N.0000))
-
-sum(N.0000)
-
-Length <- round(t(N %*% rep(1, 24)), 2)
-data.frame(Length = Length[1, 1:8])
-
-# We'll now take a look at the Markov Chain distributions
-# For individual teams. When getting to the team level, we might
-# not have enough data to adequately represent the team's true
-# probability distribution, so we introduce a smoothing curve from
-# all team data to fill in the gaps a bit.
-
-data2016C %>%
-  mutate(HOME_TEAM_ID = str_sub(GAME_ID, 1, 3),
-         BATTING.TEAM = ifelse(BAT_HOME_ID == 0, AWAY_TEAM_ID, HOME_TEAM_ID)) -> data2016C
-
-data2016C %>%
-  group_by(BATTING.TEAM, start_state, end_state) %>%
-  count() -> Team.T
-
-Team.T %>%
-  filter(BATTING.TEAM == "ANA") %>%
-  head()
-
-data2016C %>%
-  filter(start_state == "100 2") %>%
-  group_by(BATTING.TEAM, start_state, end_state) %>%
-  tally() -> Team.T.S
-
-Team.T.S %>%
-  ungroup() %>%
-  sample_n(size = 6)
-
-# Now let's look at the Nationals, with a smoothing curve
-# introduced.
-
-Team.T.S %>%
-  filter(BATTING.TEAM == "WAS") %>%
-  mutate(p = n / sum(n)) -> WAS.Trans
-
-data2016C %>%
-  filter(start_state == "100 2") %>%
-  group_by(end_state) %>%
-  tally() %>%
-  mutate(p = n / sum(n)) -> ALL.Trans
-
-WAS.Trans %>%
-  inner_join(ALL.Trans, by = "end_state") %>%
-  mutate(p.EST = n.x / (1274 + n.x) * p.x + 1274 / (1274 + n.x) * p.y) %>%
-  select(BATTING.TEAM, start_state, p.x, p.y, p.EST)
-
-# Moving on to 9.3 - Simulating a Baseball Season...
-#
-# The functions used in this analysis were moved to the file
-# one_simulation_68.R after creating them. Additional commentary
-# can be found there.
-
-s.talent <- 0.20
-RESULTS <- one.simulation.68(0.20)
-
-display_standings <- function(data, league) {
-  data %>%
-    filter(League == league) %>%
-    select(Team, Wins) %>%
-    mutate(Losses = 162 - Wins) %>%
-    arrange(desc(Wins))
+plot_trajectories <- function(player, n.similar = 5, ncol) {
+  flnames <- unlist(strsplit(player, " "))
+  
+  Master %>%
+    filter(nameFirst == flnames[1],
+           nameLast == flnames[2]) %>%
+    select(playerID) -> player
+  
+  player.list <- player %>%
+    pull(playerID) %>%
+    similar(n.similar) %>%
+    pull(playerID)
+  
+  batting_2000 %>%
+    filter(playerID %in% player.list) %>%
+    mutate(Name = paste(nameFirst, nameLast)) -> Batting.new
+  
+  ggplot(Batting.new) + aes(Age, OPS) + 
+    geom_smooth(method="lm", formula = y ~ x + I(x^2), size = 1.5) +
+    facet_wrap(~ Name, ncol=ncol) + theme_bw()
 }
 
-map(1:2, display_standings, data = RESULTS) %>%
-  bind_cols()
+plot_trajectories("Mickey Mantle", 6, 2)
 
-RESULTS %>%
-  filter(Winner.Lg == 1) %>%
-  select(Team, Winner.WS)       
+dj_plot <- plot_trajectories("Derek Jeter", 9, 3)
+dj_plot
 
-# Let's simulate many seasons to see how closely
-# Talent allows a team to win.
+regressions <- dj_plot$data %>%
+  split(pull(., Name)) %>%
+  map(~lm(OPS ~ I(Age-30) + I((Age - 30) ^ 2), data = .)) %>%
+  map_df(tidy, .id = "Name") %>%
+  as_tibble()
+head(regressions)
 
-Many.Results <- map_df(rep(0.2, 1000), one.simulation.68)
+regressions %>%
+  group_by(Name) %>%
+  summarize(b1 = estimate[1],
+            b2 = estimate[2],
+            Curve = estimate[3],
+            Age.max = round(30 - b2 / Curve / 2, 1),
+            Max = round(b1 - b2 ^2 / Curve / 4, 3)) -> S
+S
 
-ggplot(Many.Results, aes(Talent, Wins)) + geom_point(alpha = 0.05)
+ggplot(S) + aes(Age.max, Curve, label = Name) + geom_point() + geom_label_repel()
 
-ggplot(filter(Many.Results, Talent > -0.05, Talent < 0.05), aes(Wins)) + geom_histogram(color = "red", fill = "white")
+midcareers <- batting_2000 %>%
+  group_by(playerID) %>%
+  summarize(Midyear = (min(yearID) + max(yearID)) / 2,
+            AB.total = first(Career.AB))
 
-fit1 <- glm(Winner.Lg ~ Talent, data = Many.Results, family = "binomial")
-fit2 <- glm(Winner.WS ~ Talent, data = Many.Results, family = "binomial")
+batting_2000 %>%
+  inner_join(midcareers, by = "playerID") -> batting_2000
 
-talent_values <- seq(-0.4, 0.4, length.out = 100)
-tdf <- tibble(Talent = talent_values)
-df1 <- tibble(
-  Talent = talent_values,
-  Probability = predict(fit1, tdf, type = "response"),
-  Outcome = "Pennant")
-df2 <- tibble(
-  Talent = talent_values,
-  Probability = predict(fit2, tdf, type = "response"),
-  Outcome = "World Series")
+models <- batting_2000 %>%
+  split(pull(., playerID)) %>%
+  map(~lm(OPS ~ I(Age - 30) + I((Age - 30)^2), data = .)) %>%
+  map_df(tidy, .id = "playerID")
 
-ggplot(bind_rows(df1, df2), aes(Talent, Probability, linetype = Outcome)) + geom_line() + ylim(0,1)

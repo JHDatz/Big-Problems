@@ -259,4 +259,66 @@ and yearID = 2006;
 
 -- Chapter 8: Player Win Averages
 
--- Start by constructing state tables.
+-- Win Expectancy has been added to the SQL server with the addition
+-- of the following:
+
+-- merged.computeWinExpectancy (Stored Procedure)
+-- merged.computeWinExpectancySampleTable (Stored Procedure)
+-- merged.fixEndState (Function)
+-- merged.wonGame(Function)
+-- merged.winExpectancySample (Table)
+-- merged.vGenerateSAGWINDIFF (View)
+
+-- Do keep in mind that for games going longer than 10 innings or having
+-- a differential larger than 10, calculations of SAGWINDIFF will return
+-- NULLS instead.
+
+-- Since the example given is a playoff game, this unfortunately isn't stored in the server.
+-- However, here is a very similar game where Bryce Harper gives a walk-off Grand Slam:
+
+SELECT 
+	vgs.*, 
+	concat(bat_home_id, ' ', inn_ct, ' ', start_state) as start_win_state, 
+    merged.fixEndState(bat_home_id, home_score_ct, runs_scored, away_score_ct, inn_ct, game_end_fl, end_state) as end_win_state,
+    wes1.prob as start_prob,
+    wes2.prob as end_prob,
+    1000*(wes1.prob - (1 - wes1.prob)) as start_SAGWINDIFF,
+    1000*(wes2.prob - (1 - wes2.prob)) as end_SAGWINDIFF,
+    1000*((wes2.prob - (1 - wes2.prob)) - (wes1.prob - (1 - wes1.prob))) as earnedSAGWINDIFF
+FROM 
+	merged.vGenerateStates vgs
+LEFT JOIN
+	merged.winExpectancySample wes1 ON
+	concat(bat_home_id, ' ', inn_ct, ' ', start_state) = wes1.win_exp_state 
+	AND (home_score_ct - away_score_ct) = wes1.differential
+LEFT JOIN
+	merged.winExpectancySample wes2 ON
+	merged.fixEndState(bat_home_id, home_score_ct, runs_scored, away_score_ct, inn_ct, game_end_fl, end_state) = wes2.win_exp_state 
+	AND (home_score_ct - away_score_ct + runs_scored) = wes2.differential
+WHERE
+	bat_id = 'harpb003'
+    and year = 2019
+    and game_end_fl = 1
+    and away_team_id = 'CHN';
+
+-- To get all of Bryce Harper's SAGWINDIFF points in the 2019 season:
+
+SELECT
+	SUM(IF(away_team_id = "PHI", -earnedSAGWINDIFF, earnedSAGWINDIFF))
+FROM 
+	merged.vGenerateSAGWINDIFF
+WHERE
+	bat_id = 'harpb003'
+    and year = 2019;
+
+-- To get all of a particular baseball team:
+
+SELECT
+	SUM(IF(away_team_id = "PHI", -earnedSAGWINDIFF, earnedSAGWINDIFF))
+FROM
+	merged.vGenerateSAGWINDIFF
+WHERE
+	YEAR = 2019
+    AND concat(game_id, away_team_id) LIKE '%PHI%'
+    
+-- Not exactly a great number for the Phillies...
