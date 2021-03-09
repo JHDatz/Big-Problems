@@ -179,3 +179,69 @@ models <- batting_2000 %>%
   map(~lm(OPS ~ I(Age - 30) + I((Age - 30)^2), data = .)) %>%
   map_df(tidy, .id = "playerID")
 
+models %>%
+  group_by(playerID) %>%
+  summarize(A = estimate[1],
+            B = estimate[2],
+            C = estimate[3]) %>%
+  mutate(Peak.age = 30 - B / 2 / C) %>%
+  inner_join(midcareers, by = "playerID") -> beta_coefs
+
+age_plot <- ggplot(beta_coefs) + aes(Midyear, Peak.age) + geom_point(alpha = 0.5) + 
+  geom_smooth(color = "red", method = "loess") + ylim(20, 40) + xlab("Mid Career") + ylab("Peak Age")
+
+age_plot + aes(x = log2(AB.total)) + xlab("Log2 of Career AB")
+
+batting_2000a <- batting_2000 %>%
+  filter(Midyear >= 1985, Midyear <= 1995)
+
+models <- batting_2000a %>%
+  split(pull(., playerID)) %>%
+  map(~lm(OPS ~ I(Age-30) + I((Age - 30)^2), data = .)) %>%
+  map_df(tidy, .id = "playerID")
+
+models %>%
+  group_by(playerID) %>%
+  summarize(A = estimate[1],
+            B = estimate[2],
+            C = estimate[3]) %>%
+  mutate(Peak.Age = 30 - B / 2 / C) %>%
+  inner_join(midcareers) %>%
+  inner_join(Positions) %>%
+  rename(Position = POS) -> beta_estimates
+
+beta_estimates %>%
+  filter(Position %in% c("1B", "2B", "3B", "SS", "C", "OF")) %>%
+  inner_join(Master) -> beta_fielders
+
+ggplot(beta_fielders) + aes(Position, Peak.Age) + geom_jitter(width = 0.2) + ylim(20, 40) + 
+  geom_label_repel(data = filter(beta_fielders, Peak.Age > 37)) + aes(Position, Peak.Age, label = nameLast)
+
+# Exercise 1a
+
+get_stats('mayswi01')
+
+# 1b
+
+ggplot(data = get_stats('mayswi01')) + aes(Age, OPS) + geom_point() + geom_smooth(method = "lm", se = FALSE, size = 1.5, formula = y ~ poly(x, 2, raw = TRUE))
+
+# 1c
+
+estimates <- coef(lm(OPS ~ I(Age) + I((Age-30)^2), data = get_stats('mayswi01')))
+estimates[1] - estimates[2]^2 / 4 / estimates[3]
+
+# Exercise 2a
+
+similar('mayswi01') %>% inner_join(Master, by = "playerID") %>% select(playerID, nameFirst, nameLast, sim_score) %>% head(6) -> top5_similar_mays
+
+# 2b
+
+plot_trajectories('Willie Mays', 6, ncol = 3)
+
+# 2c: Smallest peak age looks like pujols :(
+
+# Exercise 3a
+
+batting %>%
+  group_by(playerID) %>%
+  summarize()
