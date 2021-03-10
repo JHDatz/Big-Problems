@@ -244,4 +244,44 @@ plot_trajectories('Willie Mays', 6, ncol = 3)
 
 batting %>%
   group_by(playerID) %>%
-  summarize()
+  summarize(Career.H = sum(H)) %>%
+  filter(Career.H > 3200) %>%
+  inner_join(batting, by = "playerID") %>%
+  inner_join(Master, by = "playerID") %>%
+  mutate(Birthyear = ifelse(birthMonth >= 7, birthYear + 1, birthYear),
+          Age = yearID - Birthyear,
+          AVG = H/AB) -> batting_3200
+
+# 3b
+
+models3200 <- batting_3200 %>%
+  split(pull(., playerID)) %>%
+  map(~lm(AVG ~ I(Age-30) + I((Age - 30)^2), data = .)) %>%
+  map_df(tidy, .id = "playerID")
+
+models3200 %>%
+  group_by(playerID) %>%
+  summarize(A = estimate[1],
+            B = estimate[2],
+            C = estimate[3]) %>%
+  mutate(Peak.Age = 30 - B / 2 / C,
+         Max = round(A - B^2 / C / 4, 3)) %>% arrange(C) -> beta3200_estimates
+
+
+ggplot(data = batting_3200, aes(Age, AVG, group=playerID, col=playerID)) + geom_point() + 
+  geom_smooth(method = "lm", se = FALSE, size = 1.5, formula = y ~ poly(x, 2, raw = TRUE))
+
+# To reduce clutter, here's the top 3:
+
+batting_3200 %>% pull(playerID) %>% unique() %>% head(3) -> top3
+batting_3200 %>% filter(playerID %in% top3) %>% mutate(Names = paste(nameFirst, nameLast)) -> batting_3200_top3
+
+ggplot(data = batting_3200_top3, aes(Age, AVG, group=Names, col=Names)) + geom_point() + 
+  geom_smooth(method = "lm", se = FALSE, size = 1.5, formula = y ~ poly(x, 2, raw = TRUE)) + ggtitle("Aging Curves, using Batting Average (AVG)")
+
+# 3c
+
+# I define the "most consistent" as having the smallest C value, so the smallest curvature in their parabola.
+# The winner is Tris Speaker, who is found at:
+
+beta3200_estimates %>% head(1) %>% select(playerID) %>% inner_join(Master, by = "playerID") %>% select(nameFirst, nameLast)

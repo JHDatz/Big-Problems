@@ -117,4 +117,38 @@ noPujols_score_ratio <- season_runs_projection/runs_allowed
 
 # This can also be done for an average team; not just the Cardinals.
 
-# Chapter 5: Evaluating Baseball Pitchers and Forecasting Future Performance
+# Chapters 5, 6, 7, 8 TBD.
+
+# Chapter 9: The Value of Replacement Players
+
+# There's some threshold of PAs being used that is not listed in the book. I found
+# The bottom 20% without a threshold to be absurdly underestimating replacement players.
+
+getBatters <- dbGetQuery(conn, 'select *, 
+                  AB + BB + SH + SF + HBP as PA
+                  from batting
+                  WHERE 
+                  yearID between 2000 and 2006
+                  and AB + BB + IBB + SH + SF > 40
+                  ORDER BY
+                  AB + BB + IBB + SH + SF')
+
+getBatters <- getBatters[1:ceiling(dim(getBatters)[[1]]*0.2),]
+
+getBatters %>% summarize(PA = sum(PA),
+                         Errors = ceiling(sum(0.018*AB)),
+                         OutsInPlay = ceiling(sum(AB + SF + SH - H - 0.018*AB - SO)),
+                         SO = sum(SO), BB = sum(BB), HBP = sum(HBP),
+                         Singles = sum(H - X2B - X3B - HR),
+                         X2B = sum(X2B),
+                         X3B = sum(X3B),
+                         HR = sum(HR)) -> replacement_player_count
+
+replacement_player_prob <- (replacement_player_count/replacement_player_count[[1]])[2:length(replacement_player_count)]
+replacement_player_extrap <- extrapolate_event_list(replacement_player_prob)
+
+replacement_simulations <- replicate(50000, inning_simulation(replacement_player_extrap))
+
+mean(replacement_simulations)*26.72/3 * 162
+
+305^2 / (305^2 + 775^2) * 162

@@ -1,17 +1,17 @@
 /* 	
 	Mathletics Code-Along
 	Written by Joe Datz
-    
+
     Worked on during the majority of the 2021 semester. The goal of this Code-Along is to be:
-    
+
 		1. A reference for students so that they can familiarize themselves with MySQL coding.
-        2. A means to build a map in students' minds of how the MySQL server is layed out.
+		2. A means to build a map in students' minds of how the MySQL server is layed out.
 
 
 	To be added in later:
-    
+
 		1. Chapter 11: Streakiness in Sports, when I have a better understanding of stats.
-        2. More of Chapter 7: Fielding, when I have a copy of the "Fielding Bible."
+		2. More of Chapter 7: Fielding, when I have a copy of the "Fielding Bible."
 
 	To start, we'll need to tell MySQL what database we intend to use. All of our future
     statements, unless otherwise specified, will assume we're talking about tables in this
@@ -22,11 +22,11 @@ USE lahman;
 
 /* 
 	Chapter 1: Baseball's Pythagorean Theorem
-    
+
 	There is a minor difference in answers from book due to sigfigs being used.
-    
-    We start off by recreating Baseball's Pythagorean theorem the "predicted_winLoss" column.
-    After that, we create the absolute_error column to see how far off this usually is.
+
+	We start off by recreating Baseball's Pythagorean theorem the "predicted_winLoss" column.
+	After that, we create the absolute_error column to see how far off this usually is.
 */
 
 CREATE TEMPORARY TABLE temp
