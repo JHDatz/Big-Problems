@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS lahman.vRunValuesLW;
+
 CREATE VIEW lahman.vRunValuesLW AS
 	SELECT
 		yearID,

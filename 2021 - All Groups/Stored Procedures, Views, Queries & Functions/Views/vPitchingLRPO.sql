@@ -1,4 +1,6 @@
-CREATE VIEW lahman.vpitchingLRPO AS
+DROP VIEW IF EXISTS lahman.vPitchingLRPO;
+
+CREATE VIEW lahman.vPitchingLRPO AS
 	SELECT 
 		p.yearID,
 		p.playerID,

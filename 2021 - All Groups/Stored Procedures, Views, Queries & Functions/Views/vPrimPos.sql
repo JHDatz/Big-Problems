@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS lahman.vPrimPos;
+
 CREATE VIEW lahman.vPrimPos AS
 	SELECT 
 		playerID,

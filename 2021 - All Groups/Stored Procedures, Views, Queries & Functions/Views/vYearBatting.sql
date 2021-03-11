@@ -1,4 +1,6 @@
-CREATE VIEW lahman.vyearBatting AS
+DROP VIEW IF EXISTS lahman.vYearBatting;
+
+CREATE VIEW lahman.vYearBatting AS
 	SELECT
 		b.yearID,
 		b.lgID,
