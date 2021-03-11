@@ -36,19 +36,27 @@ BEGIN
 	DROP TEMPORARY TABLE IF EXISTS gameWins;
 
 	CREATE TEMPORARY TABLE found_gameIDs
-		SELECT DISTINCT game_id AS game_id2
-		FROM merged.vGenerateStates
-		WHERE year BETWEEN start_year AND end_year
-		AND home_score_ct - away_score_ct = score_diff
-		AND start_state = state
-		AND inn_ct = inning
-		AND bat_home_id = 1;
+		SELECT 
+			DISTINCT game_id AS game_id2
+		FROM 
+			merged.vGenerateStates
+		WHERE 
+			year BETWEEN start_year AND end_year
+			AND home_score_ct - away_score_ct = score_diff
+			AND start_state = state
+			AND inn_ct = inning
+			AND bat_home_id = 1;
 
 	CREATE TEMPORARY TABLE gameWins
-		SELECT game_ID, IF(max(home_score_ct) >= max(away_score_ct), 1, 0) AS win
-		FROM merged.vGenerateStates gs
-		INNER JOIN found_gameIDs fg on fg.game_id2 = gs.game_id
-		GROUP BY game_ID;
+		SELECT 
+			game_ID, 
+            IF(max(home_score_ct) >= max(away_score_ct), 1, 0) AS win
+		FROM 
+			merged.vGenerateStates gs
+		INNER JOIN 
+			found_gameIDs fg on fg.game_id2 = gs.game_id
+		GROUP BY 
+			game_ID;
 
 	SELECT sum(win)/count(*) FROM gameWins;
     
