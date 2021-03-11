@@ -359,7 +359,7 @@ CALL merged.computeRunExpectancy(2004, 2004);
     matrix to compute expected value.
 */
 
-CALL merged.computeStates2(2004, 2004);
+CALL merged.computeStates(2004, 2004);
 
 CREATE TEMPORARY TABLE stateTrackerBunt
 	SELECT 

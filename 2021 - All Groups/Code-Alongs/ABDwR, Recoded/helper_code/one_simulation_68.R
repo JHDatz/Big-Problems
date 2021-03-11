@@ -60,3 +60,11 @@ one.simulation.68 <- function(s.talent) {
     rename("Team" = "winner")
   
 }
+
+display_standings <- function(data, league) {
+  data %>%
+    filter(League == league) %>%
+    select(Team, Wins) %>%
+    mutate(Losses = 162 - Wins) %>%
+    arrange(desc(Wins))
+}
