@@ -76,3 +76,11 @@ batting_3200 %>% filter(playerID %in% top3) %>% mutate(Names = paste(nameFirst, 
 
 ggplot(data = batting_3200_top3, aes(Age, AVG, group=Names, col=Names)) + geom_point() + 
   geom_smooth(method = "lm", se = FALSE, size = 1.5, formula = y ~ poly(x, 2, raw = TRUE)) + ggtitle("Aging Curves, using Batting Average (AVG)")
+
+# Approximating pi with random numbers:
+
+x <- runif(10000, 0, 1)
+y <- runif(10000, 0, 1)
+
+sum(x^2 + y^2 < 1)/length(x) * 4 # Approximation of pi
+ggplot() + aes(x, y, group = factor(x^2 + y^2 < 1), col= factor(x^2 + y^2 < 1)) + geom_point()

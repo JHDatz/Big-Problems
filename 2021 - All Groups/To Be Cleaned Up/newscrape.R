@@ -8,10 +8,10 @@ require(DBI)
 # to SQL Database Generator for future projects.  
 
 conn <- dbConnect(MySQL(), 
-                  dbname = "staging",
-                  user = "redacted", 
-                  password = "redacted",
-                  host = "redacted",
+                  dbname = "figmentLeague",
+                  user = "r-user", 
+                  password = "h2p@4031",
+                  host = "saberbase.cn2snhhvsjfa.us-east-2.rds.amazonaws.com",
                   port = 3306)
 
 
@@ -35,3 +35,13 @@ bind_rows(map(players, playername_lookup)) %>% select(key_mlbam, key_retro, key_
 dbWriteTable(conn, name = "mlbIDScrape", value = playerIDs, append = TRUE, row.names = FALSE)
 
 dbDisconnect(conn)
+
+dates <- pull(dbGetQuery(conn, n = -1, 'select distinct substring_index(date, " ", 1) from test'))
+
+get_game_pks_mlb("2018-10-01", level_ids = c(1)) %>% select(game_pk, teams.home.team.id, teams.away.team.id)
+
+bind_rows(map(dates, get_game_pks_mlb, level_ids = c(1))) %>% select(game_pk, teams.home.team.id, teams.away.team.id, venue.name) -> uhTeams
+
+uhTeams %>% select(game_pk, teams.home.team.id, teams.away.team.id, venue.name) -> idsNteams
+
+uhTeams %>% select(teams.away.team.id, teams.away.team.name) %>% distinct()
