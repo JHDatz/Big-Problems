@@ -11,3 +11,7 @@ https://docs.google.com/presentation/d/10Zgg-w4DtgjaJzKyofeQ1E8iLDnJZo4wc2w3poVu
 **Web Scraping Video:**
 
 https://lnkd.in/eer9P7V
+
+**Neural Net Presentation, Provided by Connor Stout**
+
+https://docs.google.com/presentation/d/1nkEmi7UasraIFMnNxN61NredB9g8zrBjumqCwm_j65A/edit?usp=sharing

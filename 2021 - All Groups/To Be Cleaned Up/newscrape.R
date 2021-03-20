@@ -9,11 +9,10 @@ require(DBI)
 
 conn <- dbConnect(MySQL(), 
                   dbname = "figmentLeague",
-                  user = "r-user", 
-                  password = "h2p@4031",
-                  host = "saberbase.cn2snhhvsjfa.us-east-2.rds.amazonaws.com",
+                  user = "redacted", 
+                  password = "redacted",
+                  host = "redacted",
                   port = 3306)
-
 
 startDate <- as.Date("2017-03-01")
 endDate   <- as.Date("2017-11-1")
@@ -39,9 +38,3 @@ dbDisconnect(conn)
 dates <- pull(dbGetQuery(conn, n = -1, 'select distinct substring_index(date, " ", 1) from test'))
 
 get_game_pks_mlb("2018-10-01", level_ids = c(1)) %>% select(game_pk, teams.home.team.id, teams.away.team.id)
-
-bind_rows(map(dates, get_game_pks_mlb, level_ids = c(1))) %>% select(game_pk, teams.home.team.id, teams.away.team.id, venue.name) -> uhTeams
-
-uhTeams %>% select(game_pk, teams.home.team.id, teams.away.team.id, venue.name) -> idsNteams
-
-uhTeams %>% select(teams.away.team.id, teams.away.team.name) %>% distinct()
