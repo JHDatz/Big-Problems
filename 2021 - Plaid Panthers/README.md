@@ -7,3 +7,7 @@ Our goal is to create a predictive model that assesses the ability of a position
 **Presentation on 3/15/21:**
 
 https://docs.google.com/presentation/d/1KUXxJyES4eD2abLOVBaCkgFK81f0XzoSYliz4TJebyg/edit?usp=sharing
+
+**Presentation on 3/24/21:**
+
+https://docs.google.com/presentation/d/1KUXxJyES4eD2abLOVBaCkgFK81f0XzoSYliz4TJebyg/edit?usp=sharing

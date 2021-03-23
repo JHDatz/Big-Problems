@@ -1,0 +1,55 @@
+---
+title: "Get Player IDs"
+author: "Henry Gise"
+date: "3/11/2021"
+output: html_document
+---
+
+This code uses "playerid_lookup" from baseball r to find the IDs for a set of players
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#not all of these are required
+require(devtools)
+devtools::install_github("BillPetti/baseballr")
+require(baseballr)
+require(tidyverse)
+require(retrosheet)
+require(dplyr)
+require(readr)
+require(lubridate)
+require(Lahman)
+```
+
+```{r get mlbam IDs)}
+
+#fieldingtable file is the FieldingData_WithIDs file in github
+
+#create a table that gives players' names, IDs, and first season played
+by_name <- unique(fieldingtable %>% group_by(FirstName,LastName) %>% summarise(Season = min(Season),mlbam_id = mlbam_id,bbref_id = bbref_id))
+
+for (i in c(1:nrow(by_name))){ #begin for loop
+
+#look up player
+player <- playerid_lookup(last_name = as.character(by_name$LastName[i]), first_name = as.character(by_name$FirstName[i]))
+
+if (nrow(player) > 0){ #if the look-up returns at least 1 player
+  if (nrow(player) > 1){ #if multiple players appear
+    
+    #filter out IDs and first years that don't appear as well as old players
+    player <- player %>% filter(!is.na(mlbam_id) & !is.na(mlb_played_first) & mlb_played_first > 1981)
+  }
+  if (nrow(player) > 1){ #if look-up still returns multiple players
+      
+      #filter for first years that match minimum Season in by_name
+      player <- player %>% filter(mlb_played_first == by_name$Season[i])
+  }
+  
+  if (nrow(player) == 1){ #check once more that there is one player
+    by_name$mlbam_id[i] <- player$mlbam_id
+  }
+}
+#end of for loop
+}
+```
