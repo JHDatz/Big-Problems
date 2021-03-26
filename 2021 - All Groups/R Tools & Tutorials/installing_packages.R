@@ -27,5 +27,7 @@ install.packages('xml2')
 install.packages('pitchRx')
 install.packages('mlbgameday')
 install.packages('Lahman')
+install.packages("RSQLite")
 devtools::install_github("BillPetti/baseballr")
 devtools::install_github("keberwein/mlbgameday")
+devtools::install_github("beanumber/retro") # Added 3/23/21
