@@ -92,7 +92,7 @@ upload_lahman(conn)
 dbDisconnect(conn)
 
 # Upload various tables from MLB Game Day. The clusters are used to make the
-# scraping of data more efficient.
+# scraping of data more efficient.  
 
 no_cores <- detectCores() - 1
 cl <- makeCluster(no_cores)
