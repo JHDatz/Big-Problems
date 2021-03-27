@@ -1,0 +1,229 @@
+---
+title: "MATH 1103 Project"
+author: "Brendon Gu"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Installation and Setup
+```{r, message = FALSE}
+
+require(devtools)
+# devtools::install_github("BillPetti/baseballr")
+require(baseballr)
+require(tidyverse)
+
+```
+
+# Question 
+Can we predict a player's ability to play at a particular position?  Can we predict when a player needs to change positions?
+
+# Data 
+Core dataset: catch-all defensive metric (DRS) by player-seasons for each position played, along with innings played.
+
+Additional data sources:
+\begin{itemize}
+\item Statcast data: sprint speed, additional position-specific advanced metrics 
+\item Fangraphs data: DRS components (Fielding Bible), additional defensive metrics: UZR, Inside Edge
+\item Chadwick Bureau Register: player IDs, birth dates 
+\end{itemize}
+
+## Obtaining Data
+
+#### Importing external datasets 
+
+```{r data}
+
+fielding_all <- read.csv("FangraphsAll.csv")
+statcast <- read.csv("Statcast.csv")
+
+# fixes an encoding error for the column names
+colnames(fielding_all)[1] <- gsub('^...','',colnames(fielding_all)[1])
+
+```
+
+```{r SQL-connection, include = FALSE}
+# Add this later
+```
+
+#### Sample Statcast scraping 
+
+```{r Statcast, message = FALSE, warning = FALSE}
+
+# Sample scraping code - Get all pitches from 2020 World Series Game 1 
+# There should be 302 rows.
+
+scraped_data <- scrape_statcast_savant(start_date = as.Date("2020-10-20"), 
+                                       end_date = as.Date("2020-10-20"))
+
+```
+
+#### Player ID data (Chadwick Bureau Register) 
+
+```{r Player-Lookup}
+# Downloads player ID database for MLB players that played during the DRS era (2002-present).
+
+# Data from the Chadwick Bureau Register
+# Data loading code from baseballr 
+# This may take some time.
+
+if(!exists("player_ids")){
+
+  url <- "https://raw.githubusercontent.com/chadwickbureau/register/master/data/people.csv"
+
+  player_ids <- suppressMessages(vroom::vroom(url, delim = ',') 
+                                  # can change selection later 
+                                  %>% select(key_mlbam, key_fangraphs, 
+                                             name_last, name_first, 
+                                             birth_year, birth_month, birth_day, 
+                                             mlb_played_first, mlb_played_last)
+                                  %>% filter(mlb_played_last >= 2003))
+  
+}
+
+```
+#### Joining Fangraphs data with Player ID table, Statcast data 
+
+```{r join}
+
+# Adding birth date and age
+# To Do: Some Fangraphs IDs are missing from Chadwick (around 130)
+
+fielding_all <- (fielding_all 
+  %>% left_join(player_ids, by = c("playerid" = "key_fangraphs"))
+  %>% mutate(Age = Season - birth_year, DRS_per_Inning = DRS / Inn,
+             name_first = str_replace_all(str_trim(name_first), c(" " = "", "é" = "e", "í" = "i")), 
+             name_last = str_replace_all(str_trim(name_last), c(" " = "", "é" = "e", "í" = "i"))))
+
+statcast <- (statcast
+  %>% mutate(name_first = str_replace(str_trim(first_name), " ", ""), 
+             name_last = last_name, Season = year)
+  %>% separate(name_last, sep = " ", c("name_last", NA)))
+
+# Adding Statcast data - this may not be 100% accurate 
+# Non-matched seasons: 274
+fielding_statcast <- (fielding_all 
+  %>% filter(Season >= 2016, Pos != "P", Inn >= 10)
+  %>% left_join(statcast))
+
+# Unmatched Rows 
+# nrow(fielding_statcast[is.na(fielding_statcast$player_age),])
+# fielding_statcast[is.na(fielding_statcast$player_age),]
+
+```
+
+
+# Methodology & Approach
+
+We have a few goals for this project: the first is to analyze how defensive ability changes over time and then to try to project DRS for a given player. We can construct basic models for DRS using just position and age, but ideally we'd like to incorporate player-specific data and advanced metrics from Statcast to get more accurate predictions for particular players. 
+
+DRS Modeling Steps:
+\begin{enumerate}
+\item EDA: Plot DRS vs Age, DRS vs Age for different positions, DRS vs Statcast variables, etc.
+
+\item General Positional DRS Model: Regress DRS on Age and Position. Idea: We might want to predict DRS/Inning instead of DRS since DRS is a cumulative stat. 
+
+\item Player-Specific Predictions: Incorporate past performance (similar to ZIPS) and Statcast variables (sprint speed, OAA/route efficiency for outfielders, pop time/arm strength for catchers)
+
+\item Similarity Scores/Cluster Analysis: Define a notion of similarity for players based on statistical attributes. We can also try to retroactively predict Statcast metrics for pre-2015 seasons, but I don't think this will be very helpful. Mahalanobis distance will be a good distance metric to use to address problems with scaling and correlation.     
+
+\item Player Projections: Take into account the player-specific prediction as well as trajectories for similar players, if applicable. Confidence intervals might be nice, but these will probably have to be position-dependent rather than player-dependent. We can bootstrap variance for the predicted DRS values to estimate the standard error of our predictions.  
+\end{enumerate}
+
+The second part of the project deals with players at different positions. We would like to estimate how a player might perform at a different position than his normal, and also predict when he would need to switch to a new position (likely less demanding). 
+
+# Analysis
+
+## Exploratory Data Analysis
+
+### DRS 
+
+```{r}
+
+fielding_qual_inn <- (fielding_all 
+  %>% filter(Inn >= 700) 
+  %>% mutate(Z_score = scale(DRS)))
+
+ggplot(fielding_qual_inn, aes(DRS, fill = abs(Z_score) > 2.5)) + 
+  geom_histogram(binwidth = 1) + 
+  scale_fill_manual(values = c("#003594", "#FFB81C")) + 
+  theme(legend.position = "none") 
+
+```
+
+### Aging Curves 
+
+```{r}
+
+ggplot(fielding_qual_inn, aes(Age, DRS)) + 
+  geom_point() + 
+  geom_smooth(aes(group = Pos), method = "lm", se = FALSE, 
+              color = "#003594") + 
+  facet_wrap(vars(Pos), nrow = 3)
+
+```
+```{r CF}
+
+fielding_cf <- fielding_all %>% filter(Pos == "CF")
+
+ggplot(fielding_cf, aes(Age, Inn)) + 
+  stat_summary(fun = "sum", geom = "bar", position = "identity", fill = "#003594")   
+
+fielding_qual_cf <- (fielding_cf %>% filter(Inn >= 700))
+
+ggplot(fielding_qual_cf, aes(Age, DRS)) + 
+  geom_jitter(color = "#003594") +
+  geom_smooth()
+
+```
+
+## DRS Modeling 
+
+```{r}
+
+# Using DRS per inning instead of total DRS now.
+
+ggplot(fielding_qual_inn, aes(Age, DRS_per_Inning)) + 
+  geom_point() + 
+  geom_smooth(aes(group = Pos), se = FALSE, 
+              color = "#003594") + 
+  facet_wrap(vars(Pos), nrow = 3)
+
+pos <- c("C", "1B", "2B", "SS", "3B", "LF", "CF", "RF")
+# Linear/Polynomial Models 
+lm_model <- lm(data = fielding_qual_inn, DRS_per_Inning ~ Age * Pos)
+
+# Splines 
+spline_prediction_error <- matrix(0, 8, 21)
+for (i in 2:22){
+  for (j in 1:8) {
+    total_error <- 0 
+    for (k in 1:5){
+      samp <- sample(rep(1:5, length.out = sum(fielding_qual_inn$Pos == pos[j])), replace = FALSE)
+      testd <- fielding_qual_inn[samp == k, ]
+      traind <- fielding_qual_inn[!(samp == k), ]
+  
+      spline_model <- smooth.spline(traind$DRS_per_Inning ~ traind$Age, df = i)
+      total_error <- total_error + mean((predict(spline_model, testd$Age)$y - testd$DRS_per_Inning)^2)
+    }
+    spline_prediction_error[j, i - 1] <- total_error / 5 
+  }
+}
+
+optimal_df <- max.col(-spline_prediction_error)
+
+x0 <- seq(19, 45, length.out = 200)
+
+for (i in 1:8){
+  data_tmp <- fielding_qual_inn[fielding_qual_inn$Pos == pos[i], ]
+  spline_tmp <- smooth.spline(data_tmp$DRS_per_Inning ~ data_tmp$Age, df = optimal_df[i]) 
+  
+  print(ggplot(data_tmp, aes(Age, DRS_per_Inning)) + 
+  geom_point() + 
+  geom_line(data = data.frame(x = x0, y = predict(spline_tmp, x = x0)$y), aes(x = x, y = y), col = "red", lwd = 2) +
+  ggtitle(paste(pos[i], "Model"))) 
+}
+
+```
+
