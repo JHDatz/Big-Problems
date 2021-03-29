@@ -8,6 +8,8 @@ The **Code** folder provides all code that was specific to the Bigelow Bricklaye
 
 The **Other Data** folder is data that we found and worked with for our project. We cannot show the primary dataset because it is proprietary, but we can show some of the publicly available information that we worked with.
 
+The **Graphs** folder depicts various spray charts that we took a look at.
+
 **Presentation Given on 3/15/21 and 3/22/21:**  
 
 https://docs.google.com/presentation/d/1GHhcRQKNkCSsO__oYpdqjXttP8pUpMvZS6lYxaqR3uo/edit?usp=sharing
