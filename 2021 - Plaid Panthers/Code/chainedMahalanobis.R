@@ -2,6 +2,8 @@ library(devtools)
 library(baseballr)
 library(tidyverse)
 
+setwd("~/Desktop/coding/Big Problems (Github)/2021 - Plaid Panthers/Data")
+
 fielding_all <- read.csv("FangraphsAll.csv")
 colnames(fielding_all)[1] <- gsub('^...','',colnames(fielding_all)[1])
 fielding_all <- rename(fielding_all, c("Season" = "son"))
@@ -46,75 +48,25 @@ chained.mahalanobis <- function(name, age) {
     
     fielders %>% select(rSZ, rCERA, rSB, rGFP, FRM, Def) %>% as.matrix() -> fieldersStats
     
-  } else if (comparedFielder$Pos == "1B") {
+  } else if (comparedFielder$Pos %in% c("1B", "2B", "3B", "SS")) {
     
     comparedFielder %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
     
     fielding_all %>% 
-      filter(Age == age, Pos == "1B", Inn >= 100) %>% 
+      filter(Age == age, Pos == comparedFielder$Pos, Inn >= 100) %>% 
       select(Name, Inn, rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
     
     fielders %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats
     
-  } else if (comparedFielder$Pos == "2B") {
+  } else {
     
-    comparedFielder %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
-    
-    fielding_all %>% 
-      filter(Age == age, Pos == "2B", Inn >= 100) %>% 
-      select(Name, Inn, rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
-    
-    fielders %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats
-    
-  } else if (comparedFielder$Pos == "3B") {
-    
-    comparedFielder %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
+    comparedFielder %>% select(rARM, rGFP, rPM, RZR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
     
     fielding_all %>% 
-      filter(Age == age, Pos == "3B", Inn >= 100) %>% 
-      select(Name, Inn, rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
+      filter(Age == age, Pos == comparedFielder$Pos, Inn >= 100) %>% 
+      select(Name, Inn, rARM, rGFP, rPM, RZR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
     
-    fielders %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats
-    
-  } else if (comparedFielder$Pos == "SS") {
-    
-    comparedFielder %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
-    
-    fielding_all %>% 
-      filter(Age == age, Pos == "SS", Inn >= 100) %>% 
-      select(Name, Inn, rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
-    
-    fielders %>% select(rGDP, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats 
-    
-  } else if (comparedFielder$Pos == "LF") {
-    
-    comparedFielder %>% select(rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
-    
-    fielding_all %>% 
-      filter(Age == age, Pos == "LF", Inn >= 100) %>% 
-      select(Name, Inn, rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
-    
-    fielders %>% select(rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats
-    
-  } else if (comparedFielder$Pos == "CF") {
-    
-    comparedFielder %>% select(rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
-    
-    fielding_all %>% 
-      filter(Age == age, Pos == "CF", Inn >= 100) %>% 
-      select(Name, Inn, rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
-    
-    fielders %>% select(rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats
-    
-  } else if (comparedFielder$Pos == "RF") {
-    
-    comparedFielder %>% select(rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> comparedFielderStats
-    
-    fielding_all %>% 
-      filter(Age == age, Pos == "RF", Inn >= 100) %>% 
-      select(Name, Inn, rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% na.omit() -> fielders
-    
-    fielders %>% select(rARM, rGFP, rPM, RZR, DPR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats
+    fielders %>% select(rARM, rGFP, rPM, RZR, RngR, ErrR, UZR.150, Def) %>% as.matrix() -> fieldersStats
     
   }
   
@@ -125,5 +77,5 @@ chained.mahalanobis <- function(name, age) {
   return (fielders %>% arrange(distances))
 
 }
-
+  
 # chained.mahalanobis("Fernando Tatis Jr.", 21)
