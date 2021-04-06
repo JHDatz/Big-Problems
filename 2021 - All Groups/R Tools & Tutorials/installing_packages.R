@@ -14,6 +14,8 @@
 # Linux users: Running this will make your computer very upset. Run it
 # while you make breakfast or something.
 
+
+install.packages('devtools')
 install.packages('tidyverse')
 install.packages('doParallel')
 install.packages('DBI')
