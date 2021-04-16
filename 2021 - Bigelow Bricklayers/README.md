@@ -14,6 +14,6 @@ The **Graphs** folder depicts various spray charts that we took a look at.
 
 https://docs.google.com/presentation/d/1GHhcRQKNkCSsO__oYpdqjXttP8pUpMvZS6lYxaqR3uo/edit?usp=sharing
 
-**Presentation Given on 3/31/21 to Sam Ventura of the Pittsburgh Penguins and 4/9/21 to Pitt's Mathfest and Mathematical Association of America:**
+**Presentation Given on 3/31/21 to Sam Ventura of the Pittsburgh Penguins, and 4/9/21 to both Universty of Pittsburgh's Mathfest and Mathematical Association of America's Pennsylvania Conference:**
 
 https://docs.google.com/presentation/d/1EA6KeAhCyOi6ouSOZqS9bd91YlqBdeCalMqE37DkigA/edit?usp=sharing
