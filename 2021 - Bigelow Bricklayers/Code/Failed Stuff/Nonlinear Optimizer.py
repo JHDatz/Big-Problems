@@ -8,8 +8,8 @@ from nonlinear_optimization_functions import *
 [a1, b1, c1] = curve_fit((84.85, 84.85), (0, 157.28), (-84.85, 84.85)) # shallow outfield
 [a2, b2, c2] = curve_fit((-229.809, 229.809), (0, 400), (229.809, 229.809)) # outfield max
 
-conn = mysql.connector.connect(user = 'r-user', password = 'h2p@4031',
-                               host = 'saberbase.cn2snhhvsjfa.us-east-2.rds.amazonaws.com',
+conn = mysql.connector.connect(user = 'redacted', password = 'redacted',
+                               host = 'redacted',
                                port = 3306,
                                database = 'figmentLeague')
 
