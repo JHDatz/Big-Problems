@@ -2,11 +2,11 @@ library(devtools)
 library(baseballr)
 library(tidyverse)
 
-setwd("~/Desktop/coding/Big Problems (Github)/2021 - Plaid Panthers/Data")
+setwd("C:/Users/jhd15/OneDrive/Desktop/coding/Big Problems (Github)/2021 - Plaid Panthers/Data")
 
 fielding_all <- read.csv("FangraphsAll.csv")
 colnames(fielding_all)[1] <- gsub('^...','',colnames(fielding_all)[1])
-fielding_all <- rename(fielding_all, c("Season" = "son"))
+#fielding_all <- rename(fielding_all, c("Season" = "son")) Seems to not be an issue on new computer. 4/10/21
 
 if(!exists("player_ids")){
   
