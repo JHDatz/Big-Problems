@@ -1,4 +1,5 @@
 library(tidyverse)
+library(GeomMLBStadiums)
 
 draw.rand.normal <- function(centerX) {
   u <- runif(1, 0, 1)*2*pi
@@ -34,6 +35,67 @@ spray_chart <- function(...) {
     coord_fixed() +
     scale_x_continuous(NULL, limits = c(-250, 250)) +
     scale_y_continuous(NULL, limits = c(-10, 450))
+}
+
+getWallSpline <- function(Team) {
+  
+  teamField <- MLBStadiumsPathData %>%
+    filter(team == Team) %>% 
+    mlbam_xy_transformation(x = "x", y = "y")
+  
+  teamField %>% 
+    filter(segment == 'foul_lines') %>% 
+    select(y_) %>% max() -> foulLine
+  
+  teamField %>% 
+    filter(segment == 'outfield_outer', y_ > foulLine) -> outfieldWall
+  
+  outfieldWallX <- outfieldWall %>% select(x_) %>% pull()
+  outfieldWallY <- outfieldWall %>% select(y_) %>% pull()
+  
+  spliner <- splinefun(outfieldWallX, outfieldWallY)
+  
+  return(list(min(outfieldWallX), max(outfieldWallX), spliner))
+  
+}
+
+get.grid <- function(Team) {
+  
+  width <- seq(-300, 300, .5)
+  depth <- seq(60, 400, .5)
+  
+  grid <- matrix(numeric(), nrow = length(width)*length(depth), ncol = 2)
+  
+  k <- 1
+  
+  for (i in width) {
+    for (j in depth) {
+      grid[[k, 1]] <- i
+      grid[[k, 2]] <- j
+      k <- k + 1
+    }
+  }
+  
+  grid <- as_tibble(grid)
+  names(grid) <- c("X", "Y")
+  
+  output <- getWallSpline(Team)
+  
+  wallMin <- output[[1]]
+  wallMax <- output[[2]]
+  wallSpline <- output[[3]]
+  
+  grid %>% filter(X < Y, -X < Y) -> grid # No one past foul lines
+  grid.infield <- grid %>% filter(X**2 + Y**2 < 140**2) # No infielders in outfield
+  grid.infield %>% filter(X + 120 < Y | -X + 120 < Y) -> grid.infield # No one in front of baseline
+  grid.outfield <- grid %>% filter(X**2 + Y**2 > 175**2, # No outfielders encroaching on infield
+                                   X > wallMin, 
+                                   X < wallMax,
+                                   Y < wallSpline(X)) # Outfielders stay within outfield wall
+  grid.1b <- grid.infield %>% filter((X-63.64)**2 + (Y-63.64)**2 < 30**2) # First Baseman stays near 1st
+  
+  return(list(grid.1b, grid.infield, grid.outfield))
+  
 }
 
 apply.outfield.model <- function(synthetic) {
