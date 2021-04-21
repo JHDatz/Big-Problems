@@ -1,5 +1,46 @@
+# Spray Simulation Tools
+#
+# Written By: Joe Datz
+# Date created: 4/14/21
+#
+# This R file contains the functions used to produce an optimized set of fielder
+# positions using a probabilistic simulator. The goal is to simulate a player's
+# batted balls P(X,Y | Batter), then to simulate 
+# P(Out | Fielder Coordinates, Batted Balls) and pick the coordinates that most
+# maximizes P(Out).
+#
+# This represents a modeling improvement over the nonlinear optimizer because
+# this can be directly translated into BABIP = 1 - P(Out). This is also a much
+# more realistic representation of how the relationship between getting a player
+# out and a batted ball coincide.
+#
+# At this point we only have two weeks to finish, so here's what we would have
+# done had we had extra time:
+#
+# 1. Incorporate the Pitcher and Catcher into the simulator's P(Out) function.
+#
+# 2. Ask for more detail about grounders and do some EDA to consider modeling
+# options. Batted balls to the infield are much more complicated. Some balls
+# are strictly the responsibility of pitchers and catchers (choppers that hit
+# the ground in front of the pitcher's mound and go no further), some are the
+# closest fielder's responsibility, and some even make it to the outfield and
+# become the outfielder's responsibility.
+#
+# 3. Also about grounders, we'd need to P(Out) in such a way for fielders that
+# incorporates a distinction between the probability of getting the ball and
+# the probability of getting it to first base on time.
+#
+# 4. Our cubic spline is only for the 2D boundary of the wall; a more realistic
+# version would include calculating whether the ball would be high enough to get
+# over the wall and bouncing off of it if it does not.
+
 library(tidyverse)
 library(GeomMLBStadiums)
+
+# draw.rand.normal() draws a random number from the normal distribution, centered
+# at a chosen mean centerX. This function uses the Box-Mueller method of
+# producing a randomly generated number from the Normal Distribution. It returns
+# a single randomly generated nu
 
 draw.rand.normal <- function(centerX) {
   u <- runif(1, 0, 1)*2*pi
@@ -9,35 +50,68 @@ draw.rand.normal <- function(centerX) {
   return(x)
 }
 
-draw.batted.ball <- function(buckets, data) {
-  index <- sum(buckets < runif(1, 0, 1))
+# draw.batted.ball draws a random number from the sum of bivariate, independent,
+# normal distributions centered at an individual X-Y coordinate for a batted
+# ball. It draws two random normally distributed numbers from the
+# draw.rand.normal() function and returns an X-Y coordinate pair stored in a
+# numeric vector. It relies on a player's batted ball dataset to produce a spray
+# similar to the player's actual data, and so data is passed into the function
+# as well.
+
+draw.batted.ball <- function(data) {
+  index <- sample(1:nrow(data), 1)
   x <- draw.rand.normal(data[index,1])
   y <- draw.rand.normal(data[index,2])
   return(as.numeric(c(x,y)))
 }
 
+# draw.spray() is a helper function meant to simulated batted ball data and
+# convert it back into the tibble data structure as it is more convenient to
+# work with. It takes in the batted ball data needed for the draw.batted.ball()
+# function and returns a tibble with X-Y coordinates of the randomly generated
+# data.
+
 draw.spray <- function(batted_balls_data, count) {
-  buckets <- seq(from=0, to=1, by = 1/nrow(batted_balls_data))
   
-  synthetic.data <- replicate(count, draw.batted.ball(buckets, batted_balls_data))
+  synthetic.data <- replicate(count, draw.batted.ball(batted_balls_data))
   synthetic.data <- as.tibble(t(as.matrix(synthetic.data)))
   names(synthetic.data) <- c("ballpos_x", "ballpos_y")
   
   return(synthetic.data)
 }
 
-spray_chart <- function(...) {
-  ggplot(...) + 
-    geom_curve(x = 63.64, xend = -63.64, y = 63.64, yend = 63.64, curvature = .65, linetype = "dotted", color = "black") +
-    geom_segment(x = 0, xend = 229.809, y = 0, yend = 229.809, color = "black") +
-    geom_segment(x = 0, xend = -229.809, y = 0, yend = 229.809, color = "black") +
-    geom_curve(x = -229.809, xend = 229.809, y = 229.809, yend = 229.809, curvature = -.80, color = "black") +
-    coord_fixed() +
-    scale_x_continuous(NULL, limits = c(-250, 250)) +
-    scale_y_continuous(NULL, limits = c(-10, 450))
+# The draw.coordinates() function is used to randomly select a set of X-Y
+# coordinates for a fielder given their grid of valid points. This returns
+# a numeric vector of the chosen X-Y coordinate for the player.
+
+draw.coordinates <- function(grid) {
+  
+  index <- sample(1:nrow(grid), 1)
+  
+  XCoord <- grid[[index, 1]]
+  YCoord <- grid[[index, 2]]
+  
+  return(c(XCoord, YCoord))
+  
 }
 
-getWallSpline <- function(Team) {
+# get.Wall.Spline() is a function used to produce a cubic spline approximation of
+# a field's outfield wall, using coordinates from the R package GeomMLBStadiums.
+#
+# A cubic spline is a curve fitting tool for fitting curves when randomness is
+# not in question (ie geometry shapes). It's most common application is in 
+# autoCAD software tools for engineers. Students who are interested in learning
+# more about these can do so by taking MATH1070 - Numerical Analysis.
+#
+# The function requires that we specify a team so that we know which stadium
+# we'd like to produce an outfield wall for. Once this is done, a set of X-Y
+# coordinates are taken from the MLBStadiumsPathData tibble to produce a spline
+# function with.
+#
+# The function then returns a cubic spline as well as where the foul lines end
+# for filtering purposes in the get.grid() function.
+
+get.Wall.Spline <- function(Team) {
   
   teamField <- MLBStadiumsPathData %>%
     filter(team == Team) %>% 
@@ -59,6 +133,14 @@ getWallSpline <- function(Team) {
   
 }
 
+# The get.grid() function produces a grid of coordinates unique for each field
+# that are .5 feet away from each other, which become the points we may place
+# players at. We start with a simple mesh box, and then use the get.Wall.Spline()
+# function to perform a curve fit for the outfield and foul lines. This
+# information is used firstly to filter out all coordinates not within the field
+# dimensions, and then the points are partitioned further to separate the set of
+# coordinates for the First Basemen, other infielders, and outfielders.
+
 get.grid <- function(Team) {
   
   width <- seq(-300, 300, .5)
@@ -79,7 +161,7 @@ get.grid <- function(Team) {
   grid <- as_tibble(grid)
   names(grid) <- c("X", "Y")
   
-  output <- getWallSpline(Team)
+  output <- get.Wall.Spline(Team)
   
   wallMin <- output[[1]]
   wallMax <- output[[2]]
@@ -97,6 +179,29 @@ get.grid <- function(Team) {
   return(list(grid.1b, grid.infield, grid.outfield))
   
 }
+
+# The grid.puncher() function is meant to update a fielder's coordinate grid
+# based on where another player has been placed. It eliminates all points within
+# a certain radius of another player and eliminates all points within a certain
+# angle to avoid players blocking another player's line-of-sight. To avoid
+# precision errors, the angle formula between two vectors that one would learn
+# in Calc III is used. It returns an updated grid with some coordinates filtered
+# out.
+
+grid.puncher <- function(grid, XCoord, YCoord, radius, angle) {
+  
+  grid %>% filter((XCoord - X)**2 + (YCoord - Y)**2 > radius**2, 
+                  acos((XCoord*X + YCoord*Y)/(sqrt(XCoord**2 + YCoord**2)*sqrt(X**2 + Y**2)))*180/pi > angle) -> new.grid
+  
+  return(new.grid)
+  
+}
+
+# apply.outfield.model() is a function used to simulate catches of the ball for
+# outfielders. A discrete probability function provides a probability of a
+# successful catch based on how close the closest fielder is and was created
+# using in-game data. This function then simulates based on the existing
+# probability model.
 
 apply.outfield.model <- function(synthetic) {
   
@@ -139,6 +244,12 @@ apply.outfield.model <- function(synthetic) {
   
 }
 
+# The simulate.catches() function returns an approximation for 
+# P(Out | Fielder Coordinates, Batted Balls). It firstly used the draw.spray()
+# function to simulate batted balls for an individual batter, and then appends
+# the chosen player X-Y coordinates to a tibble for simulating according to our
+# probability models.
+
 simulate.catches <- function(batted.balls, X3, Y3, X4, Y4, X5, Y5, X6, Y6, X7, Y7, X8, Y8, X9, Y9) {
   
   synthetic <- draw.spray(batted.balls, 2000) %>% na.omit()
@@ -163,25 +274,12 @@ simulate.catches <- function(batted.balls, X3, Y3, X4, Y4, X5, Y5, X6, Y6, X7, Y
   
 }
 
-grid.puncher <- function(grid, XCoord, YCoord, radius, angle) {
-  
-  grid %>% filter((XCoord - X)**2 + (YCoord - Y)**2 > radius**2, 
-                  acos((XCoord*X + YCoord*Y)/(sqrt(XCoord**2 + YCoord**2)*sqrt(X**2 + Y**2)))*180/pi > angle) -> new.grid
-  
-  return(new.grid)
-  
-}
-
-draw.coordinates <- function(grid) {
-  
-  index <- sample(1:nrow(grid), 1)
-  
-  XCoord <- grid[[index, 1]]
-  YCoord <- grid[[index, 2]]
-  
-  return(c(XCoord, YCoord))
-  
-}
+# The simulate.positions() function is the final function and is what is used in
+# tandem with the replicate() function to simulate various P(Out)'s given a set
+# of player positions. It requires that the batted balls be given for simulating,
+# the grids to be chosen for drawing positions over, and radii/angle constraints
+# be specified. It returns a large numeric vector with the positions of each
+# player and the approximated P(Out).
 
 simulate.positions <- function(batted.balls, grid.1b, grid.infield, grid.outfield, 
                                infielder_radii, outfielder_radii, infOf_radii, angle_inhibited) {

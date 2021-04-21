@@ -1,18 +1,42 @@
+# Simulator Optimization
+#
+# Written by: Joe Datz
+# Date Created: 4/14/21
+#
+# This R function is the main file for the Simulation-Based approach to
+# optimizing fielder alignments. It grabs the data for a particular player (in
+# this case, D.J LeMahieu), uses the simulate.positions() function to simulate
+# 10,000 different P(Out | Fielder Coordinates, Batted Balls) calculations
+# and uses the best P(Out) approximation to produce a graph over a chosen
+# stadium.
+#
+# More commentary can be found on the spray_simulation_tools.R file.
+
 setwd('C:/Users/jhd15/OneDrive/Desktop')
 source('spray_simulation_tools.R')
 
-df <- read_csv('PosData.csv')
-df %>% filter(batterid == 518934) %>% select(ballpos_x, ballpos_y) -> lemahieu.batted.balls
+# The two necessary inputs at the beginning of the file are the player's ID
+# and what stadium we'd like to simulate for.
 
-gridResults <- get.grid('pirates')
+player <- 518934 # D.J LeMaheiu
+stadium <- 'pirates' # PNC Park
+
+df <- read_csv('PosData.csv')
+df %>% filter(batterid == player) %>% select(ballpos_x, ballpos_y) -> batted.balls
+
+gridResults <- get.grid(stadium)
 
 grid.1b <- gridResults[[1]]
 grid.infield <- gridResults[[2]]
 grid.outfield <- gridResults[[3]]
 
-results <- replicate(10000, simulate.positions(lemahieu.batted.balls, grid.1b, grid.infield, grid.outfield,
+# Simulate 10,000 different fielder alignments
+
+results <- replicate(10000, simulate.positions(batted.balls, grid.1b, grid.infield, grid.outfield,
                                                20, 60, 60, 4), 
                      simplify = FALSE)
+
+# Tidy up the output for the graph
 
 results <- t(data.frame(results))
 rownames(results) <- NULL
@@ -31,14 +55,14 @@ names(lemahieu.batted.balls) <- c("X", "Y")
 lemahieu.batted.balls$Categories <- replicate(nrow(lemahieu.batted.balls), "Batted Ball Data")
 optimalPos$Categories <- replicate(nrow(optimalPos), "Optimal Positions")
 
-ggplot() + geom_mlb_stadium(stadium_ids = 'pirates', stadium_segments = 'all', 
+# Plot the best fielder alignment
+
+ggplot() + geom_mlb_stadium(stadium_ids = stadium, stadium_segments = 'all', 
                             stadium_transform_coords = TRUE) + 
   coord_fixed() +
-  geom_point(data = bind_rows(lemahieu.batted.balls, optimalPos)) +
+  geom_point(data = bind_rows(batted.balls, optimalPos)) +
   aes(x= X, y= Y, color = Categories, alpha = Categories) +
   scale_color_manual(values=c("firebrick", "blue")) +
   scale_alpha_manual(values = c(0.3, 1)) +
-  ggtitle("Optimal Fielder Positions for D.J LeMahieu") +
+  ggtitle(paste("Optimal Fielder Positions for", as.character(player))) +
   theme(plot.title = element_text(hjust = 0.5))
-
-
