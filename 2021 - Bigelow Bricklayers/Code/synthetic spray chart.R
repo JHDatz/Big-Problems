@@ -1,6 +1,6 @@
-setwd('C:/Users/jhd15/OneDrive/Desktop')
 library(tidyverse)
 source('spray_simulation_tools.R')
+setwd('C:/Users/jhd15/OneDrive/Desktop')
 
 df <- read_csv('PosData.csv')
 
@@ -11,3 +11,11 @@ synthetic <- draw.spray(lemahieu.batted.balls, 2000) %>% na.omit()
 spray_chart(synthetic, aes(x = ballpos_x, y = ballpos_y)) + 
   geom_point(alpha = 0.1, color = "firebrick") + 
   labs(x = "X", y = "Y")
+
+ggplot() + geom_mlb_stadium(stadium_ids = 'yankees', stadium_segments = 'all', 
+                            stadium_transform_coords = TRUE) + 
+  coord_fixed() +
+  geom_point(data = lemahieu.batted.balls, color = 'firebrick', alpha = 0.3) +
+  aes(x = ballpos_x, y = ballpos_y) +
+  ggtitle("Simulated Spray Chart for D.J LeMahieu") +
+  theme(plot.title = element_text(hjust = 0.5))

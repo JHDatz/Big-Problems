@@ -5,7 +5,7 @@ library(lubridate)
 library(Lahman)
 require(DBI)
 
-# Modifying the dataset
+# Cleaning Data
 # Written by: Joe Datz
 # 3/18/21
 #
