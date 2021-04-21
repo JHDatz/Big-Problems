@@ -152,6 +152,9 @@ weighted.Mahalanobis <- function(name, age, range) {
                                       center = FALSE, cov = cov(weighted.Stats)))
   fielders <- cbind(fielderNames, weighted.Stats, distances)
   
+  fielders <- as_tibble(fielders)
+  fielders$Name <- fielders$Name$Name
+  
   return (fielders %>% arrange(distances))
               
 }

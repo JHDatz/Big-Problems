@@ -8,6 +8,6 @@ Our goal is to create a predictive model that assesses the ability of a position
 
 https://docs.google.com/presentation/d/1KUXxJyES4eD2abLOVBaCkgFK81f0XzoSYliz4TJebyg/edit?usp=sharing
 
-**Presentation on 3/24/21:**
+**Presentation on 3/24/21, 3/31/21 to Sam Ventura of the Pittsburgh Penguins, 4/9/21 to University of Pittsburgh's Mathfest and Mathematical Association of America's Pennsylvania Conference::**
 
 https://docs.google.com/presentation/d/1KUXxJyES4eD2abLOVBaCkgFK81f0XzoSYliz4TJebyg/edit?usp=sharing
