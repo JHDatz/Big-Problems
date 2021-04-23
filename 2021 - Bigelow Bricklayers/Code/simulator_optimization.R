@@ -51,8 +51,8 @@ rownames(Y) <- NULL
 optimalPos <- as_tibble(cbind(X,Y))
 
 names(optimalPos) <- c("X", "Y")
-names(lemahieu.batted.balls) <- c("X", "Y")
-lemahieu.batted.balls$Categories <- replicate(nrow(lemahieu.batted.balls), "Batted Ball Data")
+names(batted.balls) <- c("X", "Y")
+batted.balls$Categories <- replicate(nrow(batted.balls), "Batted Ball Data")
 optimalPos$Categories <- replicate(nrow(optimalPos), "Optimal Positions")
 
 # Plot the best fielder alignment
@@ -64,5 +64,5 @@ ggplot() + geom_mlb_stadium(stadium_ids = stadium, stadium_segments = 'all',
   aes(x= X, y= Y, color = Categories, alpha = Categories) +
   scale_color_manual(values=c("firebrick", "blue")) +
   scale_alpha_manual(values = c(0.3, 1)) +
-  ggtitle(paste("Optimal Fielder Positions for", as.character(player))) +
+  ggtitle(paste("Optimal Fielder Positions for D.J LeMahieu")) +
   theme(plot.title = element_text(hjust = 0.5))

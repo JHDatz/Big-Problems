@@ -201,11 +201,12 @@ grid.puncher <- function(grid, XCoord, YCoord, radius, angle) {
 # outfielders. A discrete probability function provides a probability of a
 # successful catch based on how close the closest fielder is and was created
 # using in-game data. This function then simulates based on the existing
-# probability model.
+# probability model and returns simulations for whether or not the ball was
+# caught.
 
 apply.outfield.model <- function(synthetic) {
   
-  generic.outfield.pdf <- read_csv('outfieldModel.csv', col_types = cols())
+  generic.outfield.pdf <- read_csv('newOutfieldModel.csv', col_types = cols())
   
   synthetic %>%
     mutate(FirstBaseDistance = sqrt((X3 - ballpos_x)**2 + (Y3 - ballpos_y)**2),
@@ -230,15 +231,87 @@ apply.outfield.model <- function(synthetic) {
            responsibilityRF = ifelse(responsibility == rightFieldDistance, "RF", ""),
            responsibility.text = paste0(responsibility1B, responsibility2B, responsibility3B, responsibilitySS,
                                         responsibilityLF, responsibilityCF, responsibilityRF),
+           responsibility1BX = ifelse(responsibility == FirstBaseDistance, X3, NA),
+           responsibility2BX = ifelse(responsibility == SecondBaseDistance, X4, NA),
+           responsibility3BX = ifelse(responsibility == ThirdBaseDistance, X5, NA),
+           responsibilitySSX = ifelse(responsibility == shortstopDistance, X6, NA),
+           responsibilityLFX = ifelse(responsibility == leftFieldDistance, X7, NA),
+           responsibilityCFX = ifelse(responsibility == centerFieldDistance, X8, NA),
+           responsibilityRFX = ifelse(responsibility == rightFieldDistance, X9, NA),
+           responsibility1BY = ifelse(responsibility == FirstBaseDistance, Y3, NA),
+           responsibility2BY = ifelse(responsibility == SecondBaseDistance, Y4, NA),
+           responsibility3BY = ifelse(responsibility == ThirdBaseDistance, Y5, NA),
+           responsibilitySSY = ifelse(responsibility == shortstopDistance, Y6, NA),
+           responsibilityLFY = ifelse(responsibility == leftFieldDistance, Y7, NA),
+           responsibilityCFY = ifelse(responsibility == centerFieldDistance, Y8, NA),
+           responsibilityRFY = ifelse(responsibility == rightFieldDistance, Y9, NA),
            responsibility.buckets = cut(responsibility, seq(0,175,5))) -> synthetic
   
-  synthetic %>% filter(cannot.model == FALSE)
+  synthetic %>%
+    select(responsibility1BX, responsibility2BX, responsibility3BX, responsibilitySSX,
+           responsibilityLFX, responsibilityCFX, responsibilityRFX) %>% 
+    rowSums(na.rm=TRUE) -> synthetic$responsibility.X
   
-  synthetic %>% inner_join(generic.outfield.pdf, by = c("responsibility.buckets" = "cuts")) -> synthetic
+  synthetic %>%
+    select(responsibility1BY, responsibility2BY, responsibility3BY, responsibilitySSY,
+           responsibilityLFY, responsibilityCFY, responsibilityRFY) %>% 
+    rowSums(na.rm=TRUE) -> synthetic$responsibility.Y
+  
+  synthetic %>% 
+    mutate(frontOrBack = ifelse(ballpos_y < responsibility.Y, "Front", "Back")) -> synthetic
+  
+  synthetic %>% filter(cannot.model == FALSE, InfOf == "Outfield")
+  
+  synthetic %>% inner_join(generic.outfield.pdf, by = c("responsibility.buckets", 'frontOrBack')) -> synthetic
   
   synthetic$drawn.uniform <- runif(nrow(synthetic), 0, 1)
   
-  synthetic %>% mutate(outs = ifelse(drawn.uniform > 1 - success, 1, 0)) -> synthetic
+  synthetic %>% mutate(outs = ifelse(drawn.uniform > 1 - successRate, 1, 0)) -> synthetic
+  
+  return(synthetic)
+  
+}
+
+# apply.infield.model() is a function used to simulate catches of the ball for
+# outfielders. A discrete probability function provides a probability of a
+# successful catch based on the angle the fielder is to the ball, and is modeled
+# using in-game data. This function then simulates based on the existing
+# probability model and returns a simulation of whether or not the batted balls
+# were successfully fielded.
+
+apply.infield.model <- function(synthetic) {
+  
+  generic.infield.pdf <- read_csv('infieldModel.csv', col_types = cols())
+  
+  synthetic %>%
+    mutate(InfOf = ifelse(ballpos_x**2 + ballpos_y**2 < 175**2, "Infield", "Outfield"),
+           responsibilityAngle1B = acos((ballpos_x*X3 + ballpos_y*Y3)/(sqrt(ballpos_x**2 + ballpos_y**2)*sqrt(X3**2 + Y3**2)))*180/pi,
+           responsibilityAngle2B = acos((ballpos_x*X4 + ballpos_y*Y4)/(sqrt(ballpos_x**2 + ballpos_y**2)*sqrt(X4**2 + Y4**2)))*180/pi,
+           responsibilityAngle3B = acos((ballpos_x*X5 + ballpos_y*Y5)/(sqrt(ballpos_x**2 + ballpos_y**2)*sqrt(X5**2 + Y5**2)))*180/pi,
+           responsibilityAngleSS = acos((ballpos_x*X6 + ballpos_y*Y6)/(sqrt(ballpos_x**2 + ballpos_y**2)*sqrt(X6**2 + Y6**2)))*180/pi,
+           responsibilityAngleLF = acos((ballpos_x*X7 + ballpos_y*Y7)/(sqrt(ballpos_x**2 + ballpos_y**2)*sqrt(X7**2 + Y7**2)))*180/pi,
+           responsibilityAngleCF = acos((ballpos_x*X8 + ballpos_y*Y8)/(sqrt(ballpos_x**2 + ballpos_y**2)*sqrt(X8**2 + Y8**2)))*180/pi,
+           responsibilityAngleRF = acos((ballpos_x*X9 + ballpos_y*Y9)/(sqrt(ballpos_x**2 + ballpos_y**2)*sqrt(X9**2 + Y9**2)))*180/pi,
+           foulOrBad = ifelse((ballpos_x < ballpos_y) && (-ballpos_x < ballpos_y), FALSE, TRUE),
+           responsibility = ifelse(InfOf == "Infield", pmin(responsibilityAngle1B, responsibilityAngle2B, responsibilityAngle3B, 
+                                                            responsibilityAngleSS),
+                                   pmin(responsibilityAngleLF, responsibilityAngleCF, responsibilityAngleRF)),
+           responsibility1B = ifelse(responsibility == responsibilityAngle1B, "1B", ""),
+           responsibility2B = ifelse(responsibility == responsibilityAngle2B, "2B", ""),
+           responsibility3B = ifelse(responsibility == responsibilityAngle3B, "3B", ""),
+           responsibilitySS = ifelse(responsibility == responsibilityAngleSS, "SS", ""),
+           responsibilityLF = ifelse(responsibility == responsibilityAngleLF, "LF", ""),
+           responsibilityCF = ifelse(responsibility == responsibilityAngleCF, "CF", ""),
+           responsibilityRF = ifelse(responsibility == responsibilityAngleRF, "RF", ""),
+           responsibility.text = paste0(responsibility1B, responsibility2B, responsibility3B, responsibilitySS,
+                                        responsibilityLF, responsibilityCF, responsibilityRF),
+           responsibility.buckets = cut(responsibility, seq(0,15,1))) -> synthetic
+  
+  synthetic %>% inner_join(generic.infield.pdf, by = c("responsibility.buckets")) -> synthetic
+  
+  synthetic$drawn.uniform <- runif(nrow(synthetic), 0, 1)
+  
+  synthetic %>% mutate(outs = ifelse(drawn.uniform > 1 - successRate, 1, 0)) -> synthetic
   
   return(synthetic)
   
@@ -268,7 +341,7 @@ simulate.catches <- function(batted.balls, X3, Y3, X4, Y4, X5, Y5, X6, Y6, X7, Y
   synthetic$X9 <- replicate(nrow(synthetic), X9)
   synthetic$Y9 <- replicate(nrow(synthetic), Y9)
   
-  synthetic <- apply.outfield.model(synthetic)
+  synthetic <- bind_rows(apply.outfield.model(synthetic), apply.infield.model(synthetic))
   
   return(sum(synthetic$outs)/nrow(synthetic))
   

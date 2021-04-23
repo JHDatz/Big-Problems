@@ -8,14 +8,10 @@ df %>% filter(batterid == 518934) %>% select(ballpos_x, ballpos_y) -> lemahieu.b
 
 synthetic <- draw.spray(lemahieu.batted.balls, 2000) %>% na.omit()
 
-spray_chart(synthetic, aes(x = ballpos_x, y = ballpos_y)) + 
-  geom_point(alpha = 0.1, color = "firebrick") + 
-  labs(x = "X", y = "Y")
-
 ggplot() + geom_mlb_stadium(stadium_ids = 'yankees', stadium_segments = 'all', 
                             stadium_transform_coords = TRUE) + 
   coord_fixed() +
-  geom_point(data = lemahieu.batted.balls, color = 'firebrick', alpha = 0.3) +
+  geom_point(data = lemahieu.batted.balls, color = 'firebrick', alpha = 0.08) +
   aes(x = ballpos_x, y = ballpos_y) +
-  ggtitle("Simulated Spray Chart for D.J LeMahieu") +
+  ggtitle("Simulated Spray Chart for Jacob Cuffman") +
   theme(plot.title = element_text(hjust = 0.5))

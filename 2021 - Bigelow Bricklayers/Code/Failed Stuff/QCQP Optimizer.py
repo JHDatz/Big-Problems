@@ -1,4 +1,4 @@
-# QCQP Convex Optimization Test
+# QCQP Convex Optimization
 #
 # Written By: Joe Datz
 # Date: 3/23/21
